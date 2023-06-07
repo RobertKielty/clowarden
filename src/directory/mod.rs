@@ -189,12 +189,27 @@ impl From<legacy::Cfg> for Directory {
         let teams = cfg
             .sheriff
             .teams
-            .into_iter()
-            .map(|t| Team {
-                name: t.name,
-                maintainers: t.maintainers,
-                members: t.members,
-                ..Default::default()
+            .iter()
+            .map(|t| {
+                let mut team = Team {
+                    name: t.name.clone(),
+                    maintainers: t.maintainers.clone(),
+                    members: t.members.clone(),
+                    ..Default::default()
+                };
+
+                // Extend team's maintainers and members with the maintainers
+                // and members of the teams listed in the formation field
+                if let Some(formation) = &t.formation {
+                    for team_name in formation {
+                        if let Some(source_team) = cfg.sheriff.teams.iter().find(|t| &t.name == team_name) {
+                            team.maintainers.extend_from_slice(&source_team.maintainers);
+                            team.members.extend_from_slice(&source_team.maintainers);
+                        }
+                    }
+                }
+
+                team
             })
             .collect();
 

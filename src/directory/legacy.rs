@@ -45,7 +45,11 @@ impl Cfg {
 }
 
 pub(crate) mod sheriff {
-    use crate::{directory::UserName, github::DynGH, multierror::MultiError};
+    use crate::{
+        directory::{TeamName, UserName},
+        github::DynGH,
+        multierror::MultiError,
+    };
     use anyhow::{format_err, Context, Error, Result};
     use config::Config;
     use serde::{Deserialize, Serialize};
@@ -131,6 +135,7 @@ pub(crate) mod sheriff {
         pub name: String,
         pub maintainers: Vec<UserName>,
         pub members: Vec<UserName>,
+        pub formation: Option<Vec<TeamName>>,
     }
 }
 
