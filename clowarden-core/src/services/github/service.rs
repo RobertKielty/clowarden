@@ -9,7 +9,8 @@ use mockall::automock;
 use octorust::{
     auth::{Credentials, InstallationTokenGenerator, JWTCredentials},
     types::{
-        Affiliation, Collaborator, MinimalRepository, Order, OrganizationInvitation, OrgsListMembersFilter,
+        Affiliation, Collaborator, MinimalRepository, Order, OrganizationInvitation,
+        OrgsCreateInvitationRequest, OrgsCreateInvitationRequestRole, OrgsListMembersFilter,
         OrgsListMembersRole, Privacy, ReposAddCollaboratorRequest, ReposCreateInOrgRequest,
         ReposCreateInOrgRequestVisibility, ReposListOrgSort, ReposListOrgType, ReposUpdateInvitationRequest,
         ReposUpdateRequest, RepositoryInvitation, SimpleUser, Team, TeamMembership, TeamMembershipRole,
@@ -299,6 +300,32 @@ impl Svc for SvcApi {
 
     /// [Svc::add_team]
     async fn add_team(&self, team: &directory::Team) -> Result<(), ClientError> {
+        // Invite maintainers who aren't members yet to the organization.
+        let org_members: Vec<UserName> =
+            self.list_org_members().await?.into_iter().map(|m| m.login).collect();
+        for user_name in team.maintainers.iter() {
+            if !org_members.contains(user_name) {
+                // Get GitHub user ID
+                let user = self.client.users().get_by_username(user_name).await?;
+                if let Some(user) = user.public_user() {
+                    // Invite user to organization
+                    self.client
+                        .orgs()
+                        .create_invitation(
+                            &self.org,
+                            &OrgsCreateInvitationRequest {
+                                invitee_id: user.id,
+                                role: Some(OrgsCreateInvitationRequestRole::DirectMember),
+                                email: "".to_string(),
+                                team_ids: vec![],
+                            },
+                        )
+                        .await?;
+                }
+            }
+        }
+        sleep(Duration::from_secs(1)).await;
+
         // Create team
         let body = TeamsCreateRequest {
             name: team.name.clone(),
